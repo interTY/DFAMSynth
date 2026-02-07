@@ -1,0 +1,87 @@
+name: Build DFAMSynth
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Clone JUCE
+      run: |
+        git clone --depth 1 --branch 8.0.3 https://github.com/juce-framework/JUCE.git C:\JUCE
+      shell: cmd
+
+    - name: Configure CMake
+      run: cmake -B build -DJUCE_DIR=C:/JUCE -DCMAKE_BUILD_TYPE=Release -A x64
+      shell: cmd
+
+    - name: Build
+      run: cmake --build build --config Release --target DFAMSynth_VST3 -j
+      shell: cmd
+
+    - name: Find VST3
+      run: |
+        Get-ChildItem -Path build -Recurse -Filter "*.vst3" -Directory | ForEach-Object { Write-Output $_.FullName }
+      shell: powershell
+
+    - name: Upload Windows VST3
+      uses: actions/upload-artifact@v4
+      with:
+        name: DFAMSynth-Windows-VST3
+        path: build/DFAMSynth_artefacts/Release/VST3/
+
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Clone JUCE
+      run: git clone --depth 1 --branch 8.0.3 https://github.com/juce-framework/JUCE.git ~/JUCE
+
+    - name: Configure CMake
+      run: cmake -B build -DJUCE_DIR=$HOME/JUCE -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+
+    - name: Build
+      run: cmake --build build --config Release --target DFAMSynth_VST3 -j
+
+    - name: Find VST3
+      run: find build -name "*.vst3" -type d 2>/dev/null || true
+
+    - name: Upload macOS VST3
+      uses: actions/upload-artifact@v4
+      with:
+        name: DFAMSynth-macOS-VST3
+        path: build/DFAMSynth_artefacts/Release/VST3/
+
+  create-release:
+    needs: [build-windows, build-macos]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+
+    - name: Create zip files
+      run: |
+        cd DFAMSynth-Windows-VST3 && zip -r ../DFAMSynth-Windows.zip . && cd ..
+        cd DFAMSynth-macOS-VST3 && zip -r ../DFAMSynth-macOS.zip . && cd ..
+
+    - name: Upload combined artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: DFAMSynth-All-Platforms
+        path: |
+          DFAMSynth-Windows.zip
+          DFAMSynth-macOS.zip

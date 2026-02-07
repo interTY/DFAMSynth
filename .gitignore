@@ -1,0 +1,16 @@
+build/
+*.user
+*.suo
+*.ncb
+*.sdf
+*.opensdf
+.vs/
+.vscode/
+*.o
+*.obj
+*.lib
+*.dll
+*.exe
+*.vst3
+.DS_Store
+Thumbs.db
