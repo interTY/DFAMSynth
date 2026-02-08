@@ -79,6 +79,6 @@ void LadderFilter::updateCoefficients()
     g = std::tan(juce::MathConstants<float>::pi * fc);
     g = g / (1.0f + g);  // Normalize for TPT integration
 
-    // Resonance coefficient (k = 4 * resonance for self-oscillation at k=4)
-    k = resonance * 4.0f;
+    // Resonance coefficient (capped at 3.6 to prevent self-oscillation squeaking)
+    k = resonance * 3.6f;
 }

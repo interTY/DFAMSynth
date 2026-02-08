@@ -315,7 +315,31 @@ DFAMSynthAudioProcessorEditor::DFAMSynthAudioProcessorEditor(DFAMSynthAudioProce
     setupAutoRndComboBox(autoRndRingBox);
     setupAutoRndComboBox(autoRndDelayPitchBox);
 
-    // Auto-randomize dropdowns - no reset on "off", values are preserved
+    // Auto-randomize dropdowns - reset knobs to defaults when set to "off"
+    autoRndPitchBox.onChange = [this]() {
+        if (autoRndPitchBox.getSelectedId() == 1)
+            for (int i = 0; i < 8; ++i) seqPitchSliders[i].setValue(0.0, juce::sendNotification);
+    };
+    autoRndVelBox.onChange = [this]() {
+        if (autoRndVelBox.getSelectedId() == 1)
+            for (int i = 0; i < 8; ++i) seqVelSliders[i].setValue(0.8, juce::sendNotification);
+    };
+    autoRndPanBox.onChange = [this]() {
+        if (autoRndPanBox.getSelectedId() == 1)
+            for (int i = 0; i < 8; ++i) seqPanSliders[i].setValue(0.0, juce::sendNotification);
+    };
+    autoRndWaveBox.onChange = [this]() {
+        if (autoRndWaveBox.getSelectedId() == 1)
+            for (int i = 0; i < 8; ++i) seqWaveSliders[i].setValue(0.33, juce::sendNotification);
+    };
+    autoRndRingBox.onChange = [this]() {
+        if (autoRndRingBox.getSelectedId() == 1)
+            for (int i = 0; i < 8; ++i) seqRingModSliders[i].setValue(0.5, juce::sendNotification);
+    };
+    autoRndDelayPitchBox.onChange = [this]() {
+        if (autoRndDelayPitchBox.getSelectedId() == 1)
+            for (int i = 0; i < 8; ++i) seqDelayPitchSliders[i].setValue(0.0, juce::sendNotification);
+    };
 
     for (int i = 0; i < 8; ++i)
     {

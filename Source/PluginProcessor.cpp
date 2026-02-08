@@ -588,9 +588,7 @@ void DFAMSynthAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
 
     float tempo = tempoParam->load();
     int tempoMultIdx = static_cast<int>(tempoMultParam->load());
-    // Tempo multiplier: 0=1/4x, 1=1/2x, 2=1x, 3=2x, 4=4x
     const float tempoMultipliers[] = { 0.25f, 0.5f, 1.0f, 2.0f, 4.0f };
-    tempo *= tempoMultipliers[tempoMultIdx];
     float swing = swingParam->load();
     int seqDirection = static_cast<int>(seqDirectionParam->load());
     bool seqRun = seqRunParam->load() > 0.5f;
@@ -615,6 +613,9 @@ void DFAMSynthAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
             }
         }
     }
+
+    // Apply tempo multiplier AFTER host sync so it works in both modes
+    tempo *= tempoMultipliers[tempoMultIdx];
 
     // Ring modulator parameters
     float ringModFreq = ringModFreqParam->load();
@@ -676,11 +677,11 @@ void DFAMSynthAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
 
     // Update reverb parameters
     // Improved reverb settings for warmer sound
-    reverbParams.roomSize = 0.3f + reverbDecay * 0.6f;  // 0.3 to 0.9 range
-    reverbParams.damping = 0.6f + reverbDecay * 0.3f;   // Higher damping = warmer, less metallic
+    reverbParams.roomSize = 0.2f + reverbDecay * 0.5f;  // 0.2 to 0.7 range (less extreme)
+    reverbParams.damping = 0.7f + reverbDecay * 0.25f;  // 0.7 to 0.95 - warmer, less metallic
     reverbParams.wetLevel = 1.0f;
     reverbParams.dryLevel = 0.0f;
-    reverbParams.width = 0.8f + reverbDecay * 0.2f;     // Wider at longer decay
+    reverbParams.width = 0.6f + reverbDecay * 0.3f;     // Tighter stereo image
     reverb.setParameters(reverbParams);
 
     // Update sequencer step parameters (with scale quantization)
@@ -876,10 +877,10 @@ void DFAMSynthAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
                 // Higher glide value = slower transition
                 // Map glide 0-1 to time constant (fast to very slow)
                 float glideSpeed = 1.0f - glideAmount;  // 1 = fast, 0 = frozen
-                glideSpeed = glideSpeed * glideSpeed * glideSpeed;  // Exponential curve for better feel
+                glideSpeed = glideSpeed * glideSpeed;  // Quadratic curve - less aggressive at low values
 
                 // In drone mode, make transitions even smoother
-                float baseSpeed = droneMode ? 5.0f : 50.0f;
+                float baseSpeed = droneMode ? 5.0f : 20.0f;
                 float glideCoeff = 1.0f - std::exp(-glideSpeed * baseSpeed / static_cast<float>(currentSampleRate));
 
                 currentGlidePitch += (targetGlidePitch - currentGlidePitch) * glideCoeff;
@@ -965,7 +966,11 @@ void DFAMSynthAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
         // Apply mod matrix to filter envelope amount (vcfDecayMod scales the env amount)
         float modulatedFilterEnvAmt = std::clamp(filterEnvAmt + vcfDecayMod, -1.0f, 1.0f);
         float cutoffMod = filterEnvValue * modulatedFilterEnvAmt * 10.0f;
-        cutoffMod += noiseSample * modulatedNoiseVcfMod * 2.0f;
+        // Directional noise modulation: positive = brighten, negative = darken
+        float noiseVcfValue = (modulatedNoiseVcfMod >= 0.0f)
+            ? std::abs(noiseSample) * modulatedNoiseVcfMod * 2.0f
+            : -std::abs(noiseSample) * modulatedNoiseVcfMod * 2.0f;
+        cutoffMod += noiseVcfValue;
         cutoffMod += filterCutoffMod * 5.0f;  // Mod matrix: ±5 octaves
 
         float modulatedCutoff = filterCutoff * std::pow(2.0f, cutoffMod);
